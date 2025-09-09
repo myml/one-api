@@ -26,7 +26,6 @@ const (
 const (
 	UserStatusEnabled  = 1 // don't use 0, 0 is the default value!
 	UserStatusDisabled = 2 // also don't use 0
-	UserStatusDeleted  = 3
 )
 
 // User if you add sensitive fields, don't forget to clean them in setupLogin function.
@@ -60,7 +59,7 @@ func GetMaxUserId() int {
 }
 
 func GetAllUsers(startIdx int, num int, order string) (users []*User, err error) {
-	query := DB.Limit(num).Offset(startIdx).Omit("password").Where("status != ?", UserStatusDeleted)
+	query := DB.Limit(num).Offset(startIdx).Omit("password")
 
 	switch order {
 	case "quota":
@@ -185,10 +184,7 @@ func (user *User) Delete() error {
 	if user.Id == 0 {
 		return errors.New("id 为空！")
 	}
-	blacklist.BanUser(user.Id)
-	user.Username = fmt.Sprintf("deleted_%s", random.GetUUID())
-	user.Status = UserStatusDeleted
-	err := DB.Model(user).Updates(user).Error
+	err := DB.Model(user).Where(User{Id: user.Id}).Delete(user).Error
 	return err
 }
 
