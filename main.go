@@ -39,15 +39,19 @@ func main() {
 	}
 
 	// Initialize SQL Database
+	logger.SysLog("initializing database")
 	model.InitDB()
+	logger.SysLog("initializing log database")
 	model.InitLogDB()
 
 	var err error
+	logger.SysLog("creating root account if needed")
 	err = model.CreateRootAccountIfNeed()
 	if err != nil {
 		logger.FatalLog("database init error: " + err.Error())
 	}
 	defer func() {
+		logger.SysLog("closing database")
 		err := model.CloseDB()
 		if err != nil {
 			logger.FatalLog("failed to close database: " + err.Error())
@@ -55,12 +59,14 @@ func main() {
 	}()
 
 	// Initialize Redis
+	logger.SysLog("initializing Redis")
 	err = common.InitRedisClient()
 	if err != nil {
 		logger.FatalLog("failed to initialize Redis: " + err.Error())
 	}
 
 	// Initialize options
+	logger.SysLog("initializing options")
 	model.InitOptionMap()
 	logger.SysLog(fmt.Sprintf("using theme %s", config.Theme))
 	if common.RedisEnabled {
@@ -77,6 +83,7 @@ func main() {
 		go model.SyncChannelCache(config.SyncFrequency)
 	}
 	if os.Getenv("CHANNEL_TEST_FREQUENCY") != "" {
+		logger.SysLog("channel test enabled")
 		frequency, err := strconv.Atoi(os.Getenv("CHANNEL_TEST_FREQUENCY"))
 		if err != nil {
 			logger.FatalLog("failed to parse CHANNEL_TEST_FREQUENCY: " + err.Error())
@@ -84,6 +91,7 @@ func main() {
 		go controller.AutomaticallyTestChannels(frequency)
 	}
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
+		logger.SysLog("batch update enabled")
 		config.BatchUpdateEnabled = true
 		logger.SysLog("batch update enabled with interval " + strconv.Itoa(config.BatchUpdateInterval) + "s")
 		model.InitBatchUpdater()
@@ -91,15 +99,19 @@ func main() {
 	if config.EnableMetric {
 		logger.SysLog("metric enabled, will disable channel if too much request failed")
 	}
+	logger.SysLog("initializing token encoders")
 	openai.InitTokenEncoders()
+	logger.SysLog("initializing client")
 	client.Init()
 
 	// Initialize i18n
+	logger.SysLog("initializing i18n")
 	if err := i18n.Init(); err != nil {
 		logger.FatalLog("failed to initialize i18n: " + err.Error())
 	}
 
 	// Initialize HTTP server
+	logger.SysLog("initializing HTTP server")
 	server := gin.New()
 	server.Use(gin.Recovery())
 	// This will cause SSE not to work!!!
@@ -108,6 +120,7 @@ func main() {
 	server.Use(middleware.Language())
 	middleware.SetUpLogger(server)
 	// Initialize session store
+	logger.SysLog("session enabled")
 	store := cookie.NewStore([]byte(config.SessionSecret))
 	server.Use(sessions.Sessions("session", store))
 
